@@ -10,7 +10,10 @@ ac = AnalyzerContext()
 max_action_id, timespans = ac.sensitivity.basic()
 ac.set_result_info(max_action_id, timespans)
 
-uploads = ac.spark_uploads(['dummy'])
+print("timespans: ", timespans)
+print("max_action_id: ", max_action_id)
+
+uploads_rdd = ac.spark_uploads(['dummy'])
 
 def create_docs(kv):
     filename, (metadata, data) = kv
@@ -30,9 +33,12 @@ def create_docs(kv):
             'analyzer_id': 'analyzer-dummy'
         }
 
-uploads.flatMap(create_docs).saveToMongoDB(ac.temporary_uri)
+docs_rdd = uploads_rdd.flatMap(create_docs)
 
-# HACK see above.
+if not docs_rdd.isEmpty():
+    docs_rdd.saveToMongoDB(ac.temporary_uri)
+
+# datetime hack see above.
 todo = list(ac.temporary_coll.find({}, {'_id': 1, 'time': 1}))
 for obs in todo:
     ac.temporary_coll.update_one({'_id': obs['_id']}, {'$set': {'time': dateutil.parser.parse(obs['time'])}})
